@@ -1,0 +1,47 @@
+name: Pull request CI
+
+on: 
+  pull_request:
+    branches:
+      - main
+env:
+  CACHE_PATH: |
+    node_modules
+    */*/node_modules
+
+jobs:
+  pr-checks:
+    runs-on: ubuntu-latest
+    steps: 
+      - name: Checkout source code
+        uses: actions/checkout@v2
+
+      - name: Setup Node js
+        uses: actions/setup-node@v1
+        with:
+          node-version: '14.x'
+        
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        id: cache-dependencies
+        env:
+          cache-name: dependencies
+        with:
+          path: ${{ env.CACHE_PATH }}
+          key: ${{ runner.os }}-${{ hashFiles('**/package-lock.json')}}
+          restore-keys: |
+            ${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+            ${{ runner.os }}
+      
+      - name: Install dependencies
+        if: steps.cache-dependencies.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Lerna bootstrap
+        run: lerna bootstrap --hoist
+
+      - name: Build packages
+        run: npm run build
+
+      - name: Test packages
+        run: npm run test
